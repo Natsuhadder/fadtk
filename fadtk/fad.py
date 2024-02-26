@@ -17,6 +17,9 @@ from hypy_utils.logging_utils import setup_logger
 from .model_loader import ModelLoader
 from .utils import *
 
+import time
+
+
 log = setup_logger()
 sox_path = os.environ.get('SOX_PATH', 'sox')
 ffmpeg_path = os.environ.get('FFMPEG_PATH', 'ffmpeg')
@@ -82,6 +85,7 @@ def calc_frechet_distance(mu1, cov1, mu2, cov2, eps=1e-6):
     # Product might be almost singular
     # NOTE: issues with sqrtm for newer scipy versions
     # using eigenvalue method as workaround
+
     covmean_sqrtm, _ = linalg.sqrtm(cov1.dot(cov2), disp=False)
     
     # eigenvalue method
@@ -134,6 +138,7 @@ class FrechetAudioDistance:
         torch.autograd.set_grad_enabled(False)
 
     def load_audio(self, f: Union[str, Path]):
+
         f = Path(f)
 
         # Create a directory for storing normalized audio files
@@ -179,10 +184,9 @@ class FrechetAudioDistance:
                 else:
                     # Use sox for resampling
                     subprocess.run([sox_path, f, *sox_args, new])
-
         return self.ml.load_wav(new)
 
-    def cache_embedding_file(self, audio_dir: Union[str, Path]):
+    def cache_embedding_file(self, audio_dir: Union[str, Path], print_time=False):
         """
         Compute embedding for an audio file and cache it to a file.
         """
@@ -193,7 +197,13 @@ class FrechetAudioDistance:
 
         # Load file, get embedding, save embedding
         wav_data = self.load_audio(audio_dir)
+        if print_time:
+            start_time = time.time()  # Record start time
         embd = self.ml.get_embedding(wav_data)
+        if print_time:
+            end_time = time.time()  # Record end time
+            elapsed_time = end_time - start_time
+            print(f'ELAPSED TIME: {elapsed_time}')
         cache.parent.mkdir(parents=True, exist_ok=True)
         np.save(cache, embd)
 

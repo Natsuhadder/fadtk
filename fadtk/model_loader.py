@@ -13,7 +13,7 @@ from hypy_utils.downloader import download_file
 import torch.nn.functional as F
 import importlib.util
 from .utils import chunk_np_array
-
+#from . import kymatio_audio
 from . import panns
 
 log = logging.getLogger(__name__)
@@ -83,8 +83,12 @@ class VGGishModel(ModelLoader):
         self.model.eval()
         self.model.to(self.device)
 
+        self.num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f'VGGish: {self.num_params}')
+
     def _get_embedding(self, audio: np.ndarray) -> np.ndarray:
-        return self.model.forward(audio, self.sr)
+        emb = self.model.forward(audio, self.sr)
+        return emb
     
 
 class PANNsModel(ModelLoader):
@@ -166,6 +170,9 @@ class PANNsModel(ModelLoader):
 
         self.model.eval()
         self.model.to(self.device)
+
+        self.num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f'PANNs: {self.num_params}')
 
     def _get_embedding(self, audio: np.ndarray) -> np.ndarray:
         if '-1s' in self.variant:
@@ -272,6 +279,9 @@ class DACModel(ModelLoader):
         self.model.eval()
         self.model.to(self.device)
 
+        self.num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f'DAC: {self.num_params}')
+
     def _get_embedding(self, audio) -> np.ndarray:
         from audiotools import AudioSignal
         import time
@@ -321,6 +331,25 @@ class DACModel(ModelLoader):
         from audiotools import AudioSignal
         return AudioSignal(wav_file)
 
+class JointScatteringModel(ModelLoader):
+    """
+    Joint Scattering model from https://github.com/mathieulagrange/kymatio-audio/blob/main/kymatio_audio/scattering_audio_distance.py
+
+    pip install descript-audio-codec
+    """
+    def __init__(self, audio_len=None):
+        super().__init__("joint-scat", 2048, 22050, audio_len=audio_len)
+
+    def load_model(self):
+        return
+
+    def _get_embedding(self, audio) -> np.ndarray:
+        audio = [audio]
+        emb = kymatio_audio.scattering_audio(audio, self.sr)
+
+        #back to float64
+        emb = emb.double()
+        return emb
 
 class MERTModel(ModelLoader):
     """
@@ -342,6 +371,9 @@ class MERTModel(ModelLoader):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(self.huggingface_id, trust_remote_code=True)
         # self.sr = self.processor.sampling_rate
         self.model.to(self.device)
+
+        self.num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f'MERT num parameters: {self.num_params}')
 
     def _get_embedding(self, audio: np.ndarray) -> np.ndarray:
         # Limit to 9 minutes
@@ -424,8 +456,11 @@ class CLAPLaionModel(ModelLoader):
         import laion_clap
 
         self.model = laion_clap.CLAP_Module(enable_fusion=False, amodel='HTSAT-tiny' if self.type == 'audio' else 'HTSAT-base')
+        self.num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f'CLAP LAION: {self.num_params}')
         self.model.load_ckpt(self.model_file)
         self.model.to(self.device)
+
 
     def _get_embedding(self, audio: np.ndarray) -> np.ndarray:
         audio = audio.reshape(1, -1)
@@ -523,7 +558,9 @@ class CLAPModel(ModelLoader):
         from msclap import CLAP
         
         self.model = CLAP(self.model_file, version = self.type, use_cuda=self.device == torch.device('cuda'))
-        #self.model.to(self.device)
+        self.num_params = sum(p.numel() for p in self.model.clap.parameters() if p.requires_grad)
+        print(f'CLAP: {self.num_params}')
+        # self.model.to(self.device)
 
     def _get_embedding(self, audio: np.ndarray) -> np.ndarray:
         audio = audio.reshape(1, -1)

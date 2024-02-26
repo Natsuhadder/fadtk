@@ -10,8 +10,6 @@ from .fad import log, FrechetAudioDistance
 from .model_loader import ModelLoader
 from .utils import get_cache_embedding_path
 
-
-
 def _cache_embedding_batch(args):
     fs: list[Path]
     ml: ModelLoader

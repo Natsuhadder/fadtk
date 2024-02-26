@@ -7,7 +7,6 @@ from .fad_batch import cache_embedding_files
 def calculate_fad(model_type, baseline, eval, workers=8, force_emb_calc=False, audio_len=4):
 
     models = {m.name: m for m in get_all_models(audio_len=audio_len)}
-    print(models.keys())
     model = models[model_type]
 
     for d in [baseline, eval]:
