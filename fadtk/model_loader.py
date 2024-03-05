@@ -100,7 +100,7 @@ class PANNsModel(ModelLoader):
     You can also specify wether to send the full provided audio or 1-s chunks of audio (cnn14-32k-1s). This was shown 
     to have a very low impact on performances.
     """
-    def __init__(self, variant: Literal['cnn14-32k', 'cnn14-32k-1s', 'cnn14-16k', 'wavegram-logmel'], audio_len=None):
+    def __init__(self, variant: Literal['cnn14-32k', 'cnn14-32k-1s', 'cnn14-16k', 'wavegram-logmel', 'wavegram-logmel-emb128'], audio_len=None):
         super().__init__(f"panns-{variant}", 2048, 
                          sr=16000 if variant == 'cnn14-16k' else 16000, audio_len=audio_len)
         self.variant = variant
@@ -154,7 +154,7 @@ class PANNsModel(ModelLoader):
             state_dict = torch.load(f"{current_file_dir}/panns/ckpt/Cnn14_mAP=0.431.pth")
             self.model.load_state_dict(state_dict["model"])
 
-        elif self.variant == 'wavegram-logmel':
+        elif 'wavegram-logmel' in self.variant:
             self.model = panns.Wavegram_Logmel_Cnn14(
                 sample_rate=32000,
                 window_size=1024,
@@ -540,11 +540,11 @@ class CLAPModel(ModelLoader):
     """
     CLAP model from https://github.com/microsoft/CLAP
     """
-    def __init__(self, type: Literal['2023'], audio_len=None):
+    def __init__(self, type: Literal['2023', '2023-emb128'], audio_len=None):
         super().__init__(f"clap-{type}", 1024, 44100, audio_len=audio_len)
         self.type = type
 
-        if type == '2023':
+        if '2023' in type:
             url = 'https://huggingface.co/microsoft/msclap/resolve/main/CLAP_weights_2023.pth'
 
         self.model_file = Path(__file__).parent / ".model-checkpoints" / url.split('/')[-1]
@@ -751,11 +751,12 @@ class WhisperModel(ModelLoader):
 
 def get_all_models(audio_len=None) -> list[ModelLoader]:
     ms = [
-        CLAPModel('2023', audio_len=audio_len),
+        CLAPModel('2023', audio_len=audio_len), CLAPModel('2023-emb128', audio_len=audio_len),
         CLAPLaionModel('audio', audio_len=audio_len), CLAPLaionModel('music', audio_len=audio_len),
         VGGishModel(audio_len=audio_len), 
         PANNsModel('cnn14-32k',audio_len=audio_len), PANNsModel('cnn14-16k',audio_len=audio_len),
         PANNsModel('wavegram-logmel',audio_len=audio_len),
+        PANNsModel('wavegram-logmel-emb128',audio_len=audio_len),
         # PANNs1sModel('32k',audio_len=audio_len), PANNs1sModel('16k',audio_len=audio_len),
         *(MERTModel(layer=v, audio_len=audio_len) for v in range(1, 13)),
         EncodecEmbModel('24k', audio_len=audio_len), EncodecEmbModel('48k', audio_len=audio_len), 
